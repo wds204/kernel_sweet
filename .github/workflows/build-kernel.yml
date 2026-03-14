@@ -34,6 +34,13 @@ jobs:
           git clone --depth=1 https://github.com/LineageOS/android_prebuilts_gcc_linux-x86_aarch64_aarch64-linux-android-4.9 $HOME/gcc64
           git clone --depth=1 https://github.com/LineageOS/android_prebuilts_gcc_linux-x86_arm_arm-linux-androideabi-4.9 $HOME/gcc32
 
+      - name: Find defconfig
+        run: |
+          echo "=== arch/arm64/configs/ ==="
+          ls arch/arm64/configs/
+          echo "=== vendor subfolder (if exists) ==="
+          ls arch/arm64/configs/vendor/ 2>/dev/null || echo "No vendor subfolder"
+          
       - name: Build kernel
         run: |
           export PATH="$HOME/clang/bin:$HOME/gcc64/bin:$HOME/gcc32/bin:$PATH"
