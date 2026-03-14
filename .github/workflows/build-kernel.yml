@@ -60,6 +60,9 @@ jobs:
           # Step 3: Finalize config
           make O=out ARCH=arm64 CC=clang olddefconfig
 
+          # Force disable vdso32 to fix linker conflict
+          scripts/config --file out/.config --disable VDSO32
+
           # Step 4: Build
           make -j$(nproc --all) O=out ARCH=arm64 \
             CC=clang \
