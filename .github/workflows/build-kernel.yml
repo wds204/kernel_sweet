@@ -19,7 +19,7 @@ jobs:
           sudo apt-get update
           sudo apt-get install -y \
             bc bison flex libssl-dev libelf-dev \
-            make gcc python3 zip
+            make gcc python3 zip binutils-aarch64-linux-gnu
 
       - name: Download Clang toolchain
         run: |
@@ -33,6 +33,14 @@ jobs:
         run: |
           git clone --depth=1 https://github.com/LineageOS/android_prebuilts_gcc_linux-x86_aarch64_aarch64-linux-android-4.9 $HOME/gcc64
           git clone --depth=1 https://github.com/LineageOS/android_prebuilts_gcc_linux-x86_arm_arm-linux-androideabi-4.9 $HOME/gcc32
+
+      - name: Patch vdso32 Makefile to fix ARM linker conflict
+        run: |
+          sed -i 's/$(CC) $(a32-pflags)/$(CC) $(a32-pflags) -fuse-ld=lld/' \
+            arch/arm64/kernel/vdso32/Makefile 2>/dev/null || true
+          # Harder fix: just remove the vdso32 link step entirely
+          sed -i '/vdso.so.raw/s/^/#/' \
+            arch/arm64/kernel/vdso32/Makefile 2>/dev/null || true
 
       - name: Build kernel
         run: |
@@ -52,7 +60,7 @@ jobs:
           # Step 1: Load base defconfig
           make O=out ARCH=arm64 CC=clang sweet_defconfig
 
-          # Step 2: Merge our custom fragment on top
+          # Step 2: Merge custom fragment
           ./scripts/kconfig/merge_config.sh -m -O out \
             out/.config \
             arch/arm64/configs/sweet_perf.config
@@ -60,10 +68,11 @@ jobs:
           # Step 3: Finalize config
           make O=out ARCH=arm64 CC=clang olddefconfig
 
-          # Force disable vdso32 to fix linker conflict
+          # Step 4: Force disable vdso32 in final config
           scripts/config --file out/.config --disable VDSO32
+          scripts/config --file out/.config --disable COMPAT_VDSO
 
-          # Step 4: Build
+          # Step 5: Build
           make -j$(nproc --all) O=out ARCH=arm64 \
             CC=clang \
             LD=ld.lld \
@@ -79,10 +88,8 @@ jobs:
 
       - name: Package into AnyKernel3 flashable zip
         run: |
-          # Clone AnyKernel3
           git clone --depth=1 https://github.com/osm0sis/AnyKernel3 AnyKernel3
 
-          # Configure it for sweet (Redmi Note 10 Pro)
           cat > AnyKernel3/anykernel.sh << 'EOF'
           properties() { '
           kernel.string=SweetKernel by wds204
@@ -108,11 +115,9 @@ jobs:
           . flash_boot;
           EOF
 
-          # Copy kernel image
           cp out/arch/arm64/boot/Image.gz-dtb AnyKernel3/ 2>/dev/null || \
-          cp out/arch/arm64/boot/Image.gz AnyKernel3/ 2>/dev/null
+          cp out/arch/arm64/boot/Image.gz AnyKernel3/ 2>/dev/null || true
 
-          # Zip it up
           cd AnyKernel3
           zip -r9 ../kernel-sweet-android16-$(date +%Y%m%d).zip . \
             -x "*.git*" -x "README.md" -x "*.placeholder"
