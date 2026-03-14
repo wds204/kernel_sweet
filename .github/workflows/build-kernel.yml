@@ -44,7 +44,7 @@ jobs:
           export CROSS_COMPILE_ARM32=arm-linux-androideabi-
 
           # Step 1: Load base defconfig
-          make O=out ARCH=arm64 CC=clang sweetin_defconfig
+          make O=out ARCH=arm64 CC=clang sweet_user_defconfig
 
           # Step 2: Merge our custom fragment on top (non-destructive)
           ./scripts/kconfig/merge_config.sh -m -O out \
