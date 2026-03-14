@@ -27,7 +27,7 @@ jobs:
           wget -q https://android.googlesource.com/platform/prebuilts/clang/host/linux-x86/+archive/refs/heads/main/clang-r487747c.tar.gz -O clang.tar.gz
           tar -xf clang.tar.gz -C $HOME/clang
 
-      - name: Download GCC arm64 cross-compiler
+      - name: Download GCC cross-compilers
         run: |
           git clone --depth=1 https://github.com/LineageOS/android_prebuilts_gcc_linux-x86_aarch64_aarch64-linux-android-4.9 $HOME/gcc64
           git clone --depth=1 https://github.com/LineageOS/android_prebuilts_gcc_linux-x86_arm_arm-linux-androideabi-4.9 $HOME/gcc32
@@ -41,7 +41,18 @@ jobs:
           export CROSS_COMPILE=aarch64-linux-android-
           export CROSS_COMPILE_ARM32=arm-linux-androideabi-
 
+          # Step 1: Load base defconfig
           make O=out ARCH=arm64 CC=clang sweetin_defconfig
+
+          # Step 2: Merge our custom fragment on top (non-destructive)
+          ./scripts/kconfig/merge_config.sh -m -O out \
+            out/.config \
+            arch/arm64/configs/sweetin_perf.config
+
+          # Step 3: Finalize config
+          make O=out ARCH=arm64 CC=clang olddefconfig
+
+          # Step 4: Build
           make -j$(nproc --all) O=out ARCH=arm64 CC=clang \
             CLANG_TRIPLE=$CLANG_TRIPLE \
             CROSS_COMPILE=$CROSS_COMPILE \
