@@ -1,0 +1,63 @@
+name: Build Kernel
+
+on:
+  push:
+    branches: [ "16" ]
+  workflow_dispatch:
+
+jobs:
+  build:
+    runs-on: ubuntu-22.04
+    steps:
+      - name: Checkout kernel source
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 1
+
+      - name: Install build dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y \
+            bc bison flex libssl-dev libelf-dev \
+            make gcc python3 zip
+
+      - name: Download Clang toolchain
+        run: |
+          mkdir -p $HOME/clang
+          wget -q https://android.googlesource.com/platform/prebuilts/clang/host/linux-x86/+archive/refs/heads/main/clang-r487747c.tar.gz -O clang.tar.gz
+          tar -xf clang.tar.gz -C $HOME/clang
+
+      - name: Download GCC arm64 cross-compiler
+        run: |
+          git clone --depth=1 https://github.com/LineageOS/android_prebuilts_gcc_linux-x86_aarch64_aarch64-linux-android-4.9 $HOME/gcc64
+          git clone --depth=1 https://github.com/LineageOS/android_prebuilts_gcc_linux-x86_arm_arm-linux-androideabi-4.9 $HOME/gcc32
+
+      - name: Build kernel
+        run: |
+          export PATH="$HOME/clang/bin:$HOME/gcc64/bin:$HOME/gcc32/bin:$PATH"
+          export ARCH=arm64
+          export SUBARCH=arm64
+          export CLANG_TRIPLE=aarch64-linux-gnu-
+          export CROSS_COMPILE=aarch64-linux-android-
+          export CROSS_COMPILE_ARM32=arm-linux-androideabi-
+
+          make O=out ARCH=arm64 CC=clang sweetin_defconfig
+          make -j$(nproc --all) O=out ARCH=arm64 CC=clang \
+            CLANG_TRIPLE=$CLANG_TRIPLE \
+            CROSS_COMPILE=$CROSS_COMPILE \
+            CROSS_COMPILE_ARM32=$CROSS_COMPILE_ARM32 \
+            2>&1 | tee build.log
+
+      - name: Package kernel image
+        run: |
+          mkdir -p out/artifacts
+          cp out/arch/arm64/boot/Image.gz-dtb out/artifacts/ 2>/dev/null || \
+          cp out/arch/arm64/boot/Image.gz out/artifacts/ 2>/dev/null || true
+          cp build.log out/artifacts/
+
+      - name: Upload artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: kernel-sweetin-android16
+          path: out/artifacts/
+          retention-days: 7
