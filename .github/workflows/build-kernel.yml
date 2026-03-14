@@ -24,9 +24,11 @@ jobs:
       - name: Download Clang toolchain
         run: |
           mkdir -p $HOME/clang
-          wget -q https://android.googlesource.com/platform/prebuilts/clang/host/linux-x86/+archive/refs/heads/main/clang-r487747c.tar.gz -O clang.tar.gz
+          wget -q --tries=3 \
+            https://github.com/ZyCromerZ/Clang/releases/download/17.0.0-20230725-release/Clang-17.0.0-20230725.tar.gz \
+            -O clang.tar.gz
           tar -xf clang.tar.gz -C $HOME/clang
-
+          
       - name: Download GCC cross-compilers
         run: |
           git clone --depth=1 https://github.com/LineageOS/android_prebuilts_gcc_linux-x86_aarch64_aarch64-linux-android-4.9 $HOME/gcc64
