@@ -61,16 +61,49 @@ jobs:
             CROSS_COMPILE_ARM32=$CROSS_COMPILE_ARM32 \
             2>&1 | tee build.log
 
-      - name: Package kernel image
+      - name: Package into AnyKernel3 flashable zip
         run: |
-          mkdir -p out/artifacts
-          cp out/arch/arm64/boot/Image.gz-dtb out/artifacts/ 2>/dev/null || \
-          cp out/arch/arm64/boot/Image.gz out/artifacts/ 2>/dev/null || true
-          cp build.log out/artifacts/
+          # Clone AnyKernel3
+          git clone --depth=1 https://github.com/osm0sis/AnyKernel3 AnyKernel3
 
-      - name: Upload artifacts
+          # Configure it for sweet (Redmi Note 10 Pro)
+          cat > AnyKernel3/anykernel.sh << 'EOF'
+          properties() { '
+          kernel.string=SweetKernel by wds204
+          do.devicecheck=1
+          do.modules=0
+          do.systemless=1
+          do.cleanup=1
+          do.cleanuponabort=0
+          device.name1=sweet
+          device.name2=sweetin
+          supported.versions=
+          supported.patchlevels=
+          '; }
+
+          block=/dev/block/bootdevice/by-name/boot;
+          is_slot_device=0;
+          ramdisk_compression=auto;
+          patch_vbmeta_flag=auto;
+
+          . tools/ak3-core.sh;
+          . split_img;
+          . patch_cmdline "skip_initramfs" "";
+          . flash_boot;
+          EOF
+
+          # Copy kernel image
+          cp out/arch/arm64/boot/Image.gz-dtb AnyKernel3/ 2>/dev/null || \
+          cp out/arch/arm64/boot/Image.gz AnyKernel3/ 2>/dev/null
+
+          # Zip it up
+          cd AnyKernel3
+          zip -r9 ../kernel-sweet-android16-$(date +%Y%m%d).zip . \
+            -x "*.git*" -x "README.md" -x "*.placeholder"
+
+      - name: Upload flashable zip
         uses: actions/upload-artifact@v4
         with:
-          name: kernel-sweetin-android16
-          path: out/artifacts/
+          name: kernel-sweet-android16
+          path: kernel-sweet-android16-*.zip
           retention-days: 7
