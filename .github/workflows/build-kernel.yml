@@ -28,19 +28,12 @@ jobs:
             https://github.com/ZyCromerZ/Clang/releases/download/17.0.0-20230725-release/Clang-17.0.0-20230725.tar.gz \
             -O clang.tar.gz
           tar -xf clang.tar.gz -C $HOME/clang
-          
+
       - name: Download GCC cross-compilers
         run: |
           git clone --depth=1 https://github.com/LineageOS/android_prebuilts_gcc_linux-x86_aarch64_aarch64-linux-android-4.9 $HOME/gcc64
           git clone --depth=1 https://github.com/LineageOS/android_prebuilts_gcc_linux-x86_arm_arm-linux-androideabi-4.9 $HOME/gcc32
 
-      - name: Find defconfig
-        run: |
-          echo "=== arch/arm64/configs/ ==="
-          ls arch/arm64/configs/
-          echo "=== vendor subfolder (if exists) ==="
-          ls arch/arm64/configs/vendor/ 2>/dev/null || echo "No vendor subfolder"
-          
       - name: Build kernel
         run: |
           export PATH="$HOME/clang/bin:$HOME/gcc64/bin:$HOME/gcc32/bin:$PATH"
@@ -51,12 +44,12 @@ jobs:
           export CROSS_COMPILE_ARM32=arm-linux-androideabi-
 
           # Step 1: Load base defconfig
-          make O=out ARCH=arm64 CC=clang sweet_user_defconfig
+          make O=out ARCH=arm64 CC=clang sweet_defconfig
 
           # Step 2: Merge our custom fragment on top (non-destructive)
           ./scripts/kconfig/merge_config.sh -m -O out \
             out/.config \
-            arch/arm64/configs/sweetin_perf.config
+            arch/arm64/configs/sweet_perf.config
 
           # Step 3: Finalize config
           make O=out ARCH=arm64 CC=clang olddefconfig
